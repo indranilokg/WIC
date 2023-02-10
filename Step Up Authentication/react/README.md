@@ -48,7 +48,7 @@ If you see a home page that prompts you to login, then things are working!  Clic
 
 ![Demo](./public/3-demo.png)
 
-* Click on each of the following link to test the use case-
+* Click on each of the following links to test the use case-
 
   * **Step up session**
   

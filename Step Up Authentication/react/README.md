@@ -10,7 +10,7 @@ This example builds on the following base [sample](https://github.com/okta/sampl
 * Copy the file `okta.env.template` to `.okta.env`. Update the environment values-
 
     * ISSUER=https://<your_okta_org>/oauth2/<your_okta_authorization_server>
-    * CLIENT_ID=<yuor_app_client_id>
+    * CLIENT_ID=<your_app_client_id>
     * STEPUP_LEVEL=urn:okta:loa:2fa:any
     * STEPUP_AGE=30 (No of seconds step up session remains valid)
   

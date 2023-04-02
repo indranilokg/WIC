@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OIE - Okta Direct Login</title>
+
+  <script src="https://global.oktacdn.com/okta-auth-js/7.2.0/okta-auth-js.min.js" type="text/javascript"></script>
+
+</head>
+<body>
+  <div id="okta-login-container"></div>
+  <div id="content"></div>
+  <script>
+
+   var config = {
+    issuer: 'https://*****.oktapreview.com/oauth2/default',
+    clientId: '**********',
+    redirectUri: 'http://localhost:3000/callback',
+    scopes: ['openid', 'profile', 'email'],
+    pkce: true,
+    useInteractionCodeFlow: true
+  };
+
+
+  var authClient = new OktaAuth(config);
+
+  var enrollmentConfig = {
+    issuer: 'https://*****.oktapreview.com/oauth2/default',
+    clientId: '************',
+    redirectUri: 'http://localhost:3000/callback',
+    scopes: ['openid', 'profile', 'email'],
+    pkce: true,
+    useInteractionCodeFlow: true
+  };
+
+  var enrollmentClient = new OktaAuth(enrollmentConfig);
+
+  var enrollWebAuthn = false;
+
+  var verifyEmailForEnrollment = false;
+
+  var cachedPassword = null;
+  
+
+ // HTML page to render.
+  var render = async function(){
+      document.getElementById('content').innerHTML = ""
+          loggedIn = await isAuthenticated()
+          if (!loggedIn){
+              const par1 = document.createElement('div');
+              par1.innerHTML = `<div>
+                                  <div>Username/Email</div>
+                                  <input id="username" type="text" name="username" required />
+                                </div>
+                                <br/>
+                                <div>
+                                  <div>Password</div>
+                                  <input id="password" type="password" name="password" required />
+                                </div>
+                                <br/>
+                                <button id="submit-login-form" onclick="login();">
+                                  LOGIN
+                                </button>
+                                <button id="submit-login-email-form" onclick="loginWithWebauthn();">
+                                  LOGIN With Biometrics
+                                </button>`;
+              document.getElementById('content').appendChild(par1);
+          } 
+          else if (verifyEmailForEnrollment){
+                const par1 = document.createElement('div');
+                par1.innerHTML = `<div>
+                                <div>Verify OTP</div>
+                                  <input id="enrollemailotp" type="text" name="enrollemailotp" required />
+                                </div>
+                                <br/>
+                                <button id="submit-login-form" onclick="finishEnrollment();">
+                                  Submit
+                                </button>`;
+                document.getElementById('content').appendChild(par1);
+            } 
+            else if (enrollWebAuthn){
+                const par1 = document.createElement('div');
+                par1.innerHTML = `<div>
+                                <div>Verify OTP</div>
+                                  <input id="enrollemailotp" type="text" name="enrollemailotp" required />
+                                </div>
+                                <br/>
+                                <button id="submit-login-form" onclick="finishEnrollment();">
+                                  Submit
+                                </button>`;
+                document.getElementById('content').appendChild(par1);
+            } 
+            else{
+              document.getElementById('content').innerHTML = ""
+              tokens = await authClient.token.getWithoutPrompt()
+              idToken = tokens.tokens.idToken
+              accessToken = tokens.tokens.accessToken
+              const par1 = document.createElement('p');
+              par1.innerHTML = `Hello <b>${idToken.claims.preferred_username}</b>`;
+              document.getElementById('content').appendChild(par1);
+
+              const par2 = document.createElement('p');
+              par2.innerHTML = `<b>ID Token:</b><br> ${JSON.stringify(idToken)}`;
+              document.getElementById('content').appendChild(par2);
+
+              const par3 = document.createElement('p');
+              par3.innerHTML = `<b>Access Token:</b><br> ${JSON.stringify(accessToken)}`;
+              document.getElementById('content').appendChild(par3);
+
+              const logoutFragment = document.createElement('div');
+              logoutFragment.innerHTML = `<button id="submit-login-email-form" onclick="enrollWebauthn();">
+                                            Enroll in BioMetrics
+                                          </button>
+                                          <button id="submit-login-form" onclick="logout();">
+                                            LOGOUT
+                                          </button>`;
+              document.getElementById('content').appendChild(logoutFragment);
+          }
+  }
+
+ 
+
+  // Password based login. 
+  // Store token in browser local storage.
+  var login = async function(){
+    cachedPassword = password.value;
+    const transaction = await authClient.idx.authenticate({ 
+        username: username.value,
+        password: password.value,
+        authenticators: ['password']
+    });
+    if (transaction.status == "SUCCESS")
+        authClient.tokenManager.setTokens(transaction.tokens);
+    else
+       alert("Authentication failed")
+    render()  
+  }
+
+  // Initiate webauthn enrollment
+  var enrollWebauthn = async function(){
+
+    var transaction = await enrollmentClient.idx.startTransaction({ flow: 'authenticate' });
+    console.log(transaction);
+    transaction = await enrollmentClient.idx.proceed({ methodType: 'email' })
+    console.log(transaction);
+    verifyEmailForEnrollment = true;
+    render();  
+  }
+
+  var finishEnrollment = async function(){
+    var transaction = await enrollmentClient.idx.authenticate({ verificationCode: enrollemailotp.value });
+    console.log(transaction)
+    verifyEmailForEnrollment = false;
+    transaction = await enrollmentClient.idx.authenticate({ password: cachedPassword });
+    console.log(transaction)
+    transaction = await enrollmentClient.idx.proceed({ authenticator: 'webauthn' });
+    console.log(transaction)
+    const options = OktaAuth.webauthn.buildCredentialCreationOptions(transaction.nextStep.authenticator.contextualData.activationData, transaction.nextStep.authenticatorEnrollments);
+    const credential = await navigator.credentials.create(options);
+    const res = OktaAuth.webauthn.getAttestation(credential);
+    console.log(res);
+    const clientData = res.clientData;
+    const attestation  = res.attestation;
+    transaction = await enrollmentClient.idx.proceed({clientData, attestation});
+    console.log(transaction);
+    transaction = await enrollmentClient.idx.proceed({skip: true});
+    console.log(transaction);
+    alert("Biometric enrollment successful. Logout and re-login with biometrics option.")
+    
+    render();
+  }
+
+  // Initiate login with enrolled webauthn 
+  var loginWithWebauthn = async function(){
+    var transaction = await authClient.idx.authenticate({ 
+      username: username.value,
+      authenticators: ['webauthn']
+    });
+
+    console.log(transaction)
+    const options = OktaAuth.webauthn.buildCredentialRequestOptions(transaction.nextStep.authenticator.contextualData.challengeData, transaction.nextStep.authenticatorEnrollments);
+    const credential = await navigator.credentials.get(options);
+    const res = OktaAuth.webauthn.getAssertion(credential);
+
+    const clientData= res.clientData;
+    const authenticatorData= res.authenticatorData;
+    const signatureData = res.signatureData;
+
+    transaction = await authClient.idx.proceed({clientData, authenticatorData, signatureData});
+    console.log(transaction);
+    if (transaction.status == "SUCCESS")
+        authClient.tokenManager.setTokens(transaction.tokens);
+    else
+       alert("Authentication failed")
+    render()  
+  }
+
+  
+  // Logout. Remove token from browser local storage.
+  var logout = async function(){
+    authClient.signOut()
+    render()  
+  }
+
+ 
+  const isAuthenticated = async function(){
+      session = await authClient.session.get()
+      console.log("Session:" + JSON.stringify(session))
+      if (session.status == "ACTIVE") {
+        return true
+      } else {
+        console.log("session not found")
+        return false
+      }
+  }
+  
+
+  render()
+  </script>
+</body>
+</html>

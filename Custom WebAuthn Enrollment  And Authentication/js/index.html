@@ -7,6 +7,7 @@
   <title>OIE - Okta Direct Login</title>
 
   <script src="https://global.oktacdn.com/okta-auth-js/7.2.0/okta-auth-js.min.js" type="text/javascript"></script>
+  <script src="https://github.com/okta/okta-signin-widget/blob/master/src/util/CryptoUtil.js" type="text/javascript"></script>
 
 </head>
 <body>
@@ -15,8 +16,8 @@
   <script>
 
    var config = {
-    issuer: 'https://*****.oktapreview.com/oauth2/default',
-    clientId: '**********',
+    issuer: 'https://******.oktapreview.com/oauth2/default',
+    clientId: '******',
     redirectUri: 'http://localhost:3000/callback',
     scopes: ['openid', 'profile', 'email'],
     pkce: true,
@@ -27,8 +28,8 @@
   var authClient = new OktaAuth(config);
 
   var enrollmentConfig = {
-    issuer: 'https://*****.oktapreview.com/oauth2/default',
-    clientId: '************',
+    issuer: 'https://******.oktapreview.com/oauth2/default',
+    clientId: '******',
     redirectUri: 'http://localhost:3000/callback',
     scopes: ['openid', 'profile', 'email'],
     pkce: true,
@@ -37,12 +38,14 @@
 
   var enrollmentClient = new OktaAuth(enrollmentConfig);
 
-  var enrollWebAuthn = false;
-
   var verifyEmailForEnrollment = false;
 
   var cachedPassword = null;
+
+  var authenticatorEnrollmentsJSON = null;
   
+  var activationData = null;
+
 
  // HTML page to render.
   var render = async function(){
@@ -80,18 +83,6 @@
                                 </button>`;
                 document.getElementById('content').appendChild(par1);
             } 
-            else if (enrollWebAuthn){
-                const par1 = document.createElement('div');
-                par1.innerHTML = `<div>
-                                <div>Verify OTP</div>
-                                  <input id="enrollemailotp" type="text" name="enrollemailotp" required />
-                                </div>
-                                <br/>
-                                <button id="submit-login-form" onclick="finishEnrollment();">
-                                  Submit
-                                </button>`;
-                document.getElementById('content').appendChild(par1);
-            } 
             else{
               document.getElementById('content').innerHTML = ""
               tokens = await authClient.token.getWithoutPrompt()
@@ -110,8 +101,11 @@
               document.getElementById('content').appendChild(par3);
 
               const logoutFragment = document.createElement('div');
-              logoutFragment.innerHTML = `<button id="submit-login-email-form" onclick="enrollWebauthn();">
-                                            Enroll in BioMetrics
+              logoutFragment.innerHTML = `<button id="submit-login-email-form" onclick="enrollWebauthnFromServer();">
+                                            Enroll in BioMetrics (Backend)
+                                          </button>
+                                          <button id="submit-login-email-form" onclick="enrollWebauthn();">
+                                            Enroll in BioMetrics (Front End)
                                           </button>
                                           <button id="submit-login-form" onclick="logout();">
                                             LOGOUT
@@ -146,6 +140,60 @@
     transaction = await enrollmentClient.idx.proceed({ methodType: 'email' })
     console.log(transaction);
     verifyEmailForEnrollment = true;
+    render();  
+  }
+
+  // Initiate webauthn enrollment - server side
+  var enrollWebauthnFromServer = async function(){
+
+    var enrollmentData;
+    
+    await fetch('http://localhost:3000/enrollWebAuthn', {
+                method: 'POST',
+          })
+          .then((response) => response.json())
+          .then((data) => {
+             enrollmentData = data;
+            })
+            .catch((err) => {
+                console.log(err.message);
+    });
+
+
+    console.log(enrollmentData);
+    const options = OktaAuth.webauthn.buildCredentialCreationOptions(enrollmentData._embedded.activation, enrollmentData._embedded.activation.excludeCredentials);
+    const credential = await navigator.credentials.create(options);
+
+    const res = OktaAuth.webauthn.getAttestation(credential);
+
+    const clientData = res.clientData;
+    const attestation  = res.attestation;
+
+    const payload = JSON.stringify({
+                  clientData: clientData,
+                  attestation: attestation,
+                  activationLink: enrollmentData._links.activate.href
+                });
+    console.log(payload);
+
+    const requestOptions = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+    };
+
+
+    await fetch('http://localhost:3000/activateWebAuthn', requestOptions)
+          .then((response) => response.json())
+          .then((data) => {
+             console.log(data);
+             alert("Biometric enrollment successful. Logout and re-login with biometrics option.");
+            })
+            .catch((err) => {
+                console.log(err.message);
+            });
+
+
     render();  
   }
 
@@ -205,6 +253,7 @@
   }
 
  
+  // If tokens are present in browser local storage, user is considered authenticated.
   const isAuthenticated = async function(){
       session = await authClient.session.get()
       console.log("Session:" + JSON.stringify(session))

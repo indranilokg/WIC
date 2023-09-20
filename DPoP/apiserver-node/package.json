@@ -1,0 +1,47 @@
+{
+  "name": "@okta/samples-nodejs-express-4",
+  "description": "Express-4 Sample Applications for Okta",
+  "version": "3.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/okta/samples-nodejs-express-4.git"
+  },
+  "bugs": "https://github.com/okta/samples-nodejs-express-4/issues",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/okta/samples-nodejs-express-4",
+  "scripts": {
+    "banners": "node tools/maintain-banners.js {common,custom-login,okta-hosted-login,resource-server,tools}/{*.js,**/*.js} ./*.js common/assets/css/samples.css",
+    "custom-login-server": "node custom-login/server.js",
+    "test:custom-login": "protractor okta-oidc-tck/e2e-tests/custom-login/conf.js",
+    "okta-hosted-login-server": "node okta-hosted-login/server.js",
+    "test:okta-hosted-login": "protractor okta-oidc-tck/e2e-tests/okta-hosted-login/conf.js",
+    "resource-server": "node resource-server/server.js",
+    "test:resource-server": "jasmine okta-oidc-tck/resource-server/specs/okta-resource-server-spec.js",
+    "test": "npm run test:e2e",
+    "test:e2e": "npm run test:okta-hosted-login && npm run test:custom-login && npm run test:resource-server",
+    "pretest": "node ./scripts/update-se-drivers.js && node scripts/setup-env.js",
+    "webdriver-update-2.45": "webdriver-manager update --versions.standalone=3.141.59 --versions.chrome 2.45 --gecko false && node scripts/setup-env.js"
+  },
+  "devDependencies": {
+    "axios": "^0.27.2",
+    "find-process": "^1.4.3",
+    "forever-monitor": "^3.0.3",
+    "jasmine": "^3.6.1",
+    "jasmine-reporters": "^2.5.0",
+    "platform": "^1.3.6",
+    "protractor": "^7.0.0",
+    "wait-on": "^6.0.1"
+  },
+  "dependencies": {
+    "@okta/jwt-verifier": "^2.3.0",
+    "@okta/oidc-middleware": "^4.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "jsonwebtoken": "^9.0.0",
+    "jwt-decode": "^3.1.2",
+    "mustache-express": "^1.3.2",
+    "node-jose": "^2.2.0"
+  }
+}

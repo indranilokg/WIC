@@ -1,0 +1,13 @@
+language: node_js
+
+node_js:
+- '12'
+
+addons:
+  chrome: stable
+
+install:
+- npm install
+
+script:
+- echo "Tests not run on travis"

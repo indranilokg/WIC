@@ -1,6 +1,6 @@
 ### Setup
 
-cd sampleapp/
+cd embedded/
 
 npm install
 

@@ -204,11 +204,14 @@ app.post('/getDPOPHeader', (req, res) => {
   dpopKeystore = jose.JWK.createKeyStore();
   dpopKeystore.generate('RSA', 2048, {alg: 'RS256', use: 'sig' })
   .then(result => {
+    console.log("---DPoP Key Store---");
     console.log(dpopKeystore.toJSON(true));
     publicKey  = result.toJSON();
     privateKeyPEM  = result.toPEM(true);
     publicKeyPEM  = result.toPEM(false);
+    console.log("---DPoP Private Key---");
     console.log(privateKeyPEM);
+    console.log("---DPoP Public Key---");
     console.log(publicKeyPEM);
 
     var claims = {
@@ -226,6 +229,7 @@ app.post('/getDPOPHeader', (req, res) => {
                     }
                 }
               );
+     console.log("---DPoP Proof - No Nonce ---");
      console.log(dpopJWK);
      res.json({
       dpopheader: dpopJWK
@@ -240,6 +244,7 @@ app.post('/getDPOPHeaderWithNonce', (req, res) => {
       nonce: req.body.nonce,
       jti: crypto.randomBytes(20).toString('hex')
     }
+    console.log("--- Nonce ----");
      console.log(req.body.nonce);
      dpopJWKWithNonce= jwt.sign(claims,privateKeyPEM,
                 { 
@@ -251,6 +256,7 @@ app.post('/getDPOPHeaderWithNonce', (req, res) => {
                     }
                 }
               );
+     console.log("---DPoP Proof - With Nonce ---");
      console.log(dpopJWKWithNonce);
      res.json({
       dpopheader: dpopJWKWithNonce
@@ -272,6 +278,7 @@ app.post('/getDPOPHeaderForResource', (req, res) => {
                   }
               }
             );
+   console.log("---DPoP Proof - for Resource ---");
    console.log(dpopJWKForResource);
    res.json({
     dpopheader: dpopJWKForResource

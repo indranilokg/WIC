@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Okta Sign-In Widget Demo</title>
+
+  <script src="https://global.oktacdn.com/okta-signin-widget/7.9.1/js/okta-sign-in.min.js" type="text/javascript"></script>
+  <link href="https://global.oktacdn.com/okta-signin-widget/7.9.1/css/okta-sign-in.min.css" type="text/css" rel="stylesheet"/>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+</head>
+<body>
+  <div id="content"></div>
+  <div id="self-service"></div>
+  <div id="okta-login-container"></div>
+<script>
+
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+  const state = urlParams.get('state');
+  const intcode = urlParams.get('interaction_code');
+
+  var oktaSignIn = new OktaSignIn({
+      baseUrl: 'https://******.oktapreview.com',
+      clientId: '*********',
+      redirectUri: 'http://localhost:3000',
+      authParams: {
+        issuer: 'https://******.oktapreview.com/oauth2/default',
+        display: 'page',
+        scopes: ['openid', 'profile', 'email']
+      },
+      //state:state
+    });
+
+  var render = function(session){
+      const par1 = document.createElement('p');
+      par1.innerHTML = `Hello <b>${session.login}</b>`;
+      document.getElementById('content').appendChild(par1);
+
+      const par2 = document.createElement('p');
+      par2.innerHTML = `<b>Session:</b><br> ${JSON.stringify(session)}`;
+      document.getElementById('content').appendChild(par2);
+
+      const srvc = document.createElement('p');
+      srvc.innerHTML = `<button id="opt-in-mfa" onclick="mfaOptedIn();">
+                                  Opt in for SMS MFA
+                                </button>`;
+      document.getElementById('self-service').appendChild(srvc);
+  }
+
+  var mfaOptedIn = async function(){
+    // async call to put user in opt_in_mfa_enroll group - enrollment
+    oktaSignIn.showSignIn({
+        el: '#okta-login-container'
+      }).then(function(res) {
+          oktaSignIn.remove();
+          // async call to put user in opt_in_mfa group - for subsequent logins
+        }).catch(function(error) {
+      });
+  }
+
+  oktaSignIn.authClient.session.get()
+  .then(function(session) {
+    console.log("Session:" + JSON.stringify(session))
+    if (session.status == "ACTIVE") {
+      render(session)
+    } else {
+      console.log("session not found")
+      oktaSignIn.showSignIn({
+        el: '#okta-login-container'
+      }).then(function(res) {
+          console.log(res.tokens)
+          oktaSignIn.authClient.tokenManager.setTokens(res.tokens);
+          oktaSignIn.remove();
+          render(res.tokens.idToken)
+        }).catch(function(error) {
+      });
+    }
+  })
+
+
+  oktaSignIn.on('afterError', function (context, error) {
+   
+    console.log(error.name);
+
+    console.log(error.message);
+    
+    console.log(error.statusCode);
+});
+
+  
+
+  </script>
+</body>
+</html>
